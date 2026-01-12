@@ -75,6 +75,9 @@
             border-top: 1px solid var(--border);
             font-size: 0.8em;
         }
+        tbody tr[onclick] {
+            cursor: pointer;
+        }
         .port-column {
             text-align: center;
             width: 120px;
@@ -93,6 +96,8 @@
             padding: 4px 8px;
             border-radius: 6px;
             font-size: 13px;
+            text-decoration: none;
+            color: inherit;
         }
         .port {
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
@@ -227,11 +232,13 @@
                 tbody.innerHTML = '';
                 for (const [ep, info] of entries) {
                     const statusClass = info.online ? 'port-online' : 'port-offline';
+                    const cleanEp = String(ep).replace(/^\/+/, '');
+                    const svcUrl = `${location.protocol}//${location.hostname}:3003/${cleanEp}`;
                     tbody.innerHTML += `
-                        <tr>
+                        <tr onclick="(function(){const w=window.open('${svcUrl}','_blank'); if(w) w.opener=null;})();">
                             <td><span class="endpoint">${ep}</span></td>
                             <td class="port-cell"><span class="port ${statusClass}">${info.port}</span></td>
-                            <td><button class="btn btn-danger" onclick="deleteMapping('${ep}')">Delete</button></td>
+                            <td><button class="btn btn-danger" onclick="event.stopPropagation(); deleteMapping(${JSON.stringify(ep)})">Delete</button></td>
                         </tr>`;
                 }
             });
