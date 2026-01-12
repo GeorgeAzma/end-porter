@@ -161,7 +161,36 @@ const guiServer = http.createServer((req, res) => {
           }
           mappings[endpoint] = port;
         } else if (data.action === 'delete') {
-          delete mappings[data.endpoint];
+          let endpoint = data.endpoint?.trim().toLowerCase();
+          if (!endpoint) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end('Invalid endpoint');
+            return;
+          }
+          if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
+          delete mappings[endpoint];
+        } else if (data.action === 'rename') {
+          let oldEndpoint = data.oldEndpoint?.trim().toLowerCase();
+          let newEndpoint = data.newEndpoint?.trim().toLowerCase();
+          if (!oldEndpoint || !newEndpoint) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end('Invalid endpoint');
+            return;
+          }
+          if (!oldEndpoint.startsWith('/')) oldEndpoint = '/' + oldEndpoint;
+          if (!newEndpoint.startsWith('/')) newEndpoint = '/' + newEndpoint;
+          if (!/^\/[a-z0-9-_]+$/.test(newEndpoint) || newEndpoint === '/gui') {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end('Invalid new endpoint');
+            return;
+          }
+          if (!mappings.hasOwnProperty(oldEndpoint)) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('Old endpoint not found');
+            return;
+          }
+          mappings[newEndpoint] = mappings[oldEndpoint];
+          delete mappings[oldEndpoint];
         }
         saveMappings();
         res.writeHead(200);

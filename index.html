@@ -178,6 +178,16 @@
         input[type="number"] {
             max-width: 120px;
         }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+            -webkit-appearance: none;
+        }
         @media (max-width: 600px) {
             form {
                 flex-direction: column;
@@ -235,12 +245,101 @@
                     const cleanEp = String(ep).replace(/^\/+/, '');
                     const svcUrl = `${location.protocol}//${location.hostname}:3003/${cleanEp}`;
                     tbody.innerHTML += `
-                        <tr onclick="(function(){const w=window.open('${svcUrl}','_blank'); if(w) w.opener=null;})();">
+                        <tr data-ep="${ep}" data-svc="${svcUrl}">
                             <td><span class="endpoint">${ep}</span></td>
                             <td class="port-cell"><span class="port ${statusClass}">${info.port}</span></td>
-                            <td><button class="btn btn-danger" onclick="event.stopPropagation(); deleteMapping(${JSON.stringify(ep)})">Delete</button></td>
+                            <td><button class="btn btn-danger btn-delete" data-ep="${ep}">Delete</button></td>
                         </tr>`;
                 }
+
+                // attach delete button handlers
+                document.querySelectorAll('#mappings .btn-delete').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const ep = btn.getAttribute('data-ep');
+                        deleteMapping(ep);
+                    });
+                });
+
+                // attach row click handlers (open proxied service) while respecting editing state
+                document.querySelectorAll('#mappings tbody tr').forEach(tr => {
+                    tr.addEventListener('click', (e) => {
+                        if (tr.dataset.editing) return;
+                        if (e.target.closest('button') || e.target.closest('input') ) return;
+                        const svc = tr.getAttribute('data-svc');
+                        if (!svc) return;
+                        const w = window.open(svc, '_blank');
+                        if (w) w.opener = null;
+                    });
+                });
+
+                // attach inline-edit handlers
+                document.querySelectorAll('#mappings .endpoint').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const tr = el.closest('tr');
+                        tr.dataset.editing = 'true';
+                        const oldEp = tr.dataset.ep || el.textContent;
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = oldEp.replace(/^\/+/, '');
+                        input.style.fontFamily = 'inherit';
+                        input.style.fontSize = '13px';
+                        input.style.padding = '4px 6px';
+                        input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') input.blur(); if (ev.key === 'Escape') { el.textContent = oldEp; } });
+                        const finishEdit = async () => {
+                            const newVal = input.value.trim();
+                            if (!newVal) { el.textContent = oldEp; tr.dataset.editing = '' ; return; }
+                            const newEp = newVal.startsWith('/') ? newVal : '/' + newVal;
+                            if (newEp === oldEp) { el.textContent = oldEp; tr.dataset.editing = '' ; return; }
+                            try {
+                                const resp = await fetch('/gui/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'rename', oldEndpoint: oldEp, newEndpoint: newEp }) });
+                                if (!resp.ok) { alert(await resp.text()); el.textContent = oldEp; tr.dataset.editing = '' ; return; }
+                                // update row dataset to new endpoint so other handlers use it
+                                tr.dataset.ep = newEp;
+                                loadMappings();
+                            } catch (err) { alert('Rename failed'); el.textContent = oldEp; tr.dataset.editing = '' ; }
+                        };
+
+                        input.addEventListener('blur', finishEdit);
+                        input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { input.blur(); } if (ev.key === 'Escape') { el.textContent = oldEp; tr.dataset.editing = '' ; } });
+                        input.addEventListener('mousedown', (ev) => ev.stopPropagation());
+                        input.addEventListener('click', (ev) => ev.stopPropagation());
+                        el.textContent = '';
+                        el.appendChild(input);
+                        input.focus(); input.select();
+                    });
+                });
+
+                document.querySelectorAll('#mappings .port').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const tr = el.closest('tr');
+                        tr.dataset.editing = 'true';
+                        const ep = tr.dataset.ep || tr.querySelector('.endpoint').textContent;
+                        const oldPort = el.textContent;
+                        const input = document.createElement('input');
+                        input.type = 'number'; input.min = 1; input.max = 65535; input.value = oldPort;
+                        input.style.width = '80px';
+                        const finish = async () => {
+                            const newPort = parseInt(input.value, 10);
+                            tr.dataset.editing = '';
+                            if (isNaN(newPort)) { el.textContent = oldPort; return; }
+                            try {
+                                const resp = await fetch('/gui/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'add', endpoint: ep, port: newPort }) });
+                                if (!resp.ok) { alert(await resp.text()); el.textContent = oldPort; return; }
+                                loadMappings();
+                            } catch (err) { alert('Update failed'); el.textContent = oldPort; }
+                        };
+                        input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') input.blur(); if (ev.key === 'Escape') { el.textContent = oldPort; tr.dataset.editing = ''; } });
+                        input.addEventListener('blur', finish);
+                        input.addEventListener('mousedown', (ev) => ev.stopPropagation());
+                        input.addEventListener('click', (ev) => ev.stopPropagation());
+                        el.textContent = '';
+                        el.appendChild(input);
+                        input.focus(); input.select();
+                    });
+                });
             });
         }
         
