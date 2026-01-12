@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Router GUI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border: #30363d;
+            --fg-primary: #e6edf3;
+            --fg-secondary: #8b949e;
+            --accent: #238636;
+            --accent-hover: #2ea043;
+            --danger: #da3633;
+            --danger-hover: #f85149;
+        }
+        body {
+            background: var(--bg-primary);
+            color: var(--fg-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: center;
+        }
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 1em;
+            color: var(--fg-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            text-align: left;
+            padding: 12px 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            color: var(--fg-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: var(--bg-tertiary);
+        }
+        td {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            font-size: 0.8em;
+        }
+        .port-column {
+            text-align: center;
+            width: 120px;
+        }
+        .port-cell {
+            text-align: center;
+            vertical-align: middle;
+            padding: 16px 10px;
+        }
+        tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        .endpoint {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            background: var(--bg-tertiary);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        .port {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .port-online {
+            background: rgba(86, 211, 100, 0.08);
+            color: #56d364;
+        }
+        .port-offline {
+            background: rgba(248, 81, 73, 0.08);
+            color: #f85149;
+        }
+        .empty-state {
+            padding: 48px 20px;
+            text-align: center;
+            color: var(--fg-secondary);
+        }
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--border);
+        }
+        .btn-danger:hover {
+            background: var(--danger);
+            color: white;
+            border-color: var(--danger);
+        }
+        form {
+            padding: 20px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        input {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px 14px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--fg-primary);
+            font-size: 14px;
+            transition: border-color 0.15s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        input::placeholder {
+            color: var(--fg-secondary);
+        }
+        input[type="number"] {
+            max-width: 120px;
+        }
+        @media (max-width: 600px) {
+            form {
+                flex-direction: column;
+            }
+            input, .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Router Mappings</h1>
+        
+        <div class="card">
+            <div class="card-header">Active Mappings</div>
+            <table id="mappings">
+                <thead><tr><th>Endpoint</th><th class="port-column">Port</th><th style="width: 100px;">Actions</th></tr></thead>
+                <tbody><!-- Dynamically populated --></tbody>
+            </table>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">Add New Mapping</div>
+            <form id="addForm">
+                <input type="text" id="endpoint" placeholder="myapp" required>
+                <input type="number" id="port" placeholder="5000" required>
+                <button type="submit" class="btn btn-primary">Add Mapping</button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        function loadMappings() {
+            fetch('/gui/get').then(r => r.json()).then(data => {
+                const tbody = document.querySelector('#mappings tbody');
+                const entries = Object.entries(data);
+                
+                if (entries.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="3">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">📭</div>
+                                    <div>No mappings configured yet</div>
+                                </div>
+                            </td>
+                        </tr>`;
+                    return;
+                }
+                
+                tbody.innerHTML = '';
+                for (const [ep, info] of entries) {
+                    const statusClass = info.online ? 'port-online' : 'port-offline';
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><span class="endpoint">${ep}</span></td>
+                            <td class="port-cell"><span class="port ${statusClass}">${info.port}</span></td>
+                            <td><button class="btn btn-danger" onclick="deleteMapping('${ep}')">Delete</button></td>
+                        </tr>`;
+                }
+            });
+        }
+        
+        loadMappings();
+
+        document.getElementById('addForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const ep = document.getElementById('endpoint').value;
+            const p = document.getElementById('port').value;
+            fetch('/gui/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'add', endpoint: ep, port: p }) })
+                .then(() => loadMappings());
+            document.getElementById('endpoint').value = '';
+            document.getElementById('port').value = '';
+        });
+
+        function deleteMapping(ep) {
+            fetch('/gui/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'delete', endpoint: ep }) })
+                .then(() => loadMappings());
+        }
+    </script>
+</body>
+</html>
