@@ -209,5 +209,5 @@ const guiServer = http.createServer((req, res) => {
   res.end('Not Found');
 });
 
-proxyServer.listen(PORT, '127.0.0.1', () => console.log(`Proxy listening on localhost:${PORT} (for cloudflared)`));
-guiServer.listen(GUI_PORT, '127.0.0.1', () => console.log(`GUI listening on localhost:${GUI_PORT} (admin only)`));
+proxyServer.listen(PORT, '127.0.0.1', () => console.log(`Proxy listening on http://localhost:${PORT} (for cloudflared)`));
+guiServer.listen(GUI_PORT, '127.0.0.1', () => console.log(`GUI listening on http://localhost:${GUI_PORT} (admin only)`));
