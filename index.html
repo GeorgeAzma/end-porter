@@ -222,7 +222,7 @@
     
     <script>
         function loadMappings() {
-            fetch('/gui/get').then(r => r.json()).then(data => {
+            fetch('/get').then(r => r.json()).then(data => {
                 const tbody = document.querySelector('#mappings tbody');
                 const entries = Object.entries(data);
                 
@@ -293,7 +293,7 @@
                             const newEp = newVal.startsWith('/') ? newVal : '/' + newVal;
                             if (newEp === oldEp) { el.textContent = oldEp; tr.dataset.editing = '' ; return; }
                             try {
-                                const resp = await fetch('/gui/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'rename', oldEndpoint: oldEp, newEndpoint: newEp }) });
+                                const resp = await fetch('/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'rename', oldEndpoint: oldEp, newEndpoint: newEp }) });
                                 if (!resp.ok) { alert(await resp.text()); el.textContent = oldEp; tr.dataset.editing = '' ; return; }
                                 // update row dataset to new endpoint so other handlers use it
                                 tr.dataset.ep = newEp;
@@ -326,7 +326,7 @@
                             tr.dataset.editing = '';
                             if (isNaN(newPort)) { el.textContent = oldPort; return; }
                             try {
-                                const resp = await fetch('/gui/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'add', endpoint: ep, port: newPort }) });
+                                const resp = await fetch('/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'add', endpoint: ep, port: newPort }) });
                                 if (!resp.ok) { alert(await resp.text()); el.textContent = oldPort; return; }
                                 loadMappings();
                             } catch (err) { alert('Update failed'); el.textContent = oldPort; }
@@ -349,14 +349,14 @@
             e.preventDefault();
             const ep = document.getElementById('endpoint').value;
             const p = document.getElementById('port').value;
-            fetch('/gui/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'add', endpoint: ep, port: p }) })
+            fetch('/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'add', endpoint: ep, port: p }) })
                 .then(() => loadMappings());
             document.getElementById('endpoint').value = '';
             document.getElementById('port').value = '';
         });
 
         function deleteMapping(ep) {
-            fetch('/gui/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'delete', endpoint: ep }) })
+            fetch('/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'delete', endpoint: ep }) })
                 .then(() => loadMappings());
         }
     </script>

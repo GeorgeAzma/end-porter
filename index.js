@@ -8,6 +8,22 @@ const MAPPINGS_FILE = 'endpoint_port_mappings.json';
 // Load mappings: { "/endpoint": port }
 let mappings = fs.existsSync(MAPPINGS_FILE) ? JSON.parse(fs.readFileSync(MAPPINGS_FILE, 'utf8')) : {};
 
+// small debug logger controlled by VERBOSE or DEBUG env var
+const VERBOSE = process.env.VERBOSE === '1' || process.env.DEBUG === '1';
+function dbg(...args) { if (VERBOSE) console.log(...args); }
+
+function canonicalizeEndpoint(raw) {
+  if (raw === undefined || raw === null) return null;
+  let s = String(raw).trim().toLowerCase();
+  if (!s) return null;
+  if (!s.startsWith('/')) s = '/' + s;
+  return s;
+}
+
+function isValidEndpoint(endpoint) {
+  return /^\/[a-z0-9-_]+$/.test(endpoint) && endpoint !== '/gui';
+}
+
 function saveMappings() {
   fs.writeFileSync(MAPPINGS_FILE, JSON.stringify(mappings, null, 2));
 }
@@ -77,7 +93,7 @@ const proxyServer = http.createServer((req, res) => {
   const path = parsedUrl.pathname;
   const referer = req.headers.referer || req.headers.referrer || '';
   
-  console.log(`[Proxy] ${req.method} ${path}`);
+  dbg(`[Proxy] ${req.method} ${path}`);
 
   // Block GUI access on proxy server entirely
   if (path === '/gui' || path.startsWith('/gui/')) {
@@ -94,7 +110,7 @@ const proxyServer = http.createServer((req, res) => {
     const targetPath = matchedByPath ? (path.slice(endpoint.length) || '/') : path;
     const targetUrl = `http://localhost:${port}${targetPath}${parsedUrl.search || ''}`;
     
-    console.log(`  → Proxying to :${port}${targetPath}${matchedByPath ? '' : ' (via referer)'}`);
+    dbg(`  → Proxying to :${port}${targetPath}${matchedByPath ? '' : ' (via referer)'}`);
     
     const proxyReq = http.request(targetUrl, { method: req.method, headers: req.headers }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, proxyRes.headers);
@@ -118,15 +134,15 @@ const guiServer = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://localhost:${GUI_PORT}`);
   const path = parsedUrl.pathname;
   
-  console.log(`[GUI] ${req.method} ${path}`);
+  dbg(`[GUI] ${req.method} ${path}`);
 
-  if (path === '/' || path === '/gui') {
+  if (path === '/') {
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end(html);
     return;
   }
 
-  if ((path === '/get' || path === '/gui/get') && req.method === 'GET') {
+  if (path === '/get' && req.method === 'GET') {
     getMappingsWithStatus().then(status => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(status));
@@ -134,21 +150,15 @@ const guiServer = http.createServer((req, res) => {
     return;
   }
 
-  if ((path === '/update' || path === '/gui/update') && req.method === 'POST') {
+  if (path === '/update' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk.toString(); });
     req.on('end', () => {
       try {
         const data = JSON.parse(body);
         if (data.action === 'add') {
-          let endpoint = data.endpoint?.trim().toLowerCase();
-          if (!endpoint) {
-            res.writeHead(400, { 'Content-Type': 'text/plain' });
-            res.end('Invalid endpoint');
-            return;
-          }
-          if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
-          if (!/^\/[a-z0-9-_]+$/.test(endpoint) || endpoint === '/gui') {
+          const endpoint = canonicalizeEndpoint(data.endpoint);
+          if (!endpoint || !isValidEndpoint(endpoint)) {
             res.writeHead(400, { 'Content-Type': 'text/plain' });
             res.end('Invalid endpoint');
             return;
@@ -161,27 +171,19 @@ const guiServer = http.createServer((req, res) => {
           }
           mappings[endpoint] = port;
         } else if (data.action === 'delete') {
-          let endpoint = data.endpoint?.trim().toLowerCase();
+          const endpoint = canonicalizeEndpoint(data.endpoint);
           if (!endpoint) {
             res.writeHead(400, { 'Content-Type': 'text/plain' });
             res.end('Invalid endpoint');
             return;
           }
-          if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
           delete mappings[endpoint];
         } else if (data.action === 'rename') {
-          let oldEndpoint = data.oldEndpoint?.trim().toLowerCase();
-          let newEndpoint = data.newEndpoint?.trim().toLowerCase();
-          if (!oldEndpoint || !newEndpoint) {
+          const oldEndpoint = canonicalizeEndpoint(data.oldEndpoint);
+          const newEndpoint = canonicalizeEndpoint(data.newEndpoint);
+          if (!oldEndpoint || !newEndpoint || !isValidEndpoint(newEndpoint)) {
             res.writeHead(400, { 'Content-Type': 'text/plain' });
             res.end('Invalid endpoint');
-            return;
-          }
-          if (!oldEndpoint.startsWith('/')) oldEndpoint = '/' + oldEndpoint;
-          if (!newEndpoint.startsWith('/')) newEndpoint = '/' + newEndpoint;
-          if (!/^\/[a-z0-9-_]+$/.test(newEndpoint) || newEndpoint === '/gui') {
-            res.writeHead(400, { 'Content-Type': 'text/plain' });
-            res.end('Invalid new endpoint');
             return;
           }
           if (!mappings.hasOwnProperty(oldEndpoint)) {
