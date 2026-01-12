@@ -13,7 +13,7 @@
         :root {
             --bg-primary: #0d1117;
             --bg-secondary: #161b22;
-            --bg-tertiary: #21262d;
+            --bg-tertiary: #20252d;
             --border: #30363d;
             --fg-primary: #e6edf3;
             --fg-secondary: #8b949e;
@@ -78,6 +78,9 @@
         tbody tr[onclick] {
             cursor: pointer;
         }
+        #mappings tbody tr[data-svc]:not([data-editing]) {
+            cursor: pointer;
+        }
         .port-column {
             text-align: center;
             width: 120px;
@@ -88,7 +91,7 @@
             padding: 16px 10px;
         }
         tr:hover td {
-            background: var(--bg-tertiary);
+            background: rgba(71, 73, 87, 0.18);
         }
         .endpoint {
             font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
@@ -107,12 +110,21 @@
             font-size: 13px;
             font-weight: 500;
         }
+        .endpoint:hover {
+            background: rgba(158, 160, 190, 0.1);
+        }
+        .port-online:hover {
+            background: rgba(104, 189, 159, 0.2);
+        }
+        .port-offline:hover {
+            background: rgba(248, 81, 73, 0.2);
+        }
         .port-online {
-            background: rgba(86, 211, 100, 0.08);
-            color: #56d364;
+            background: rgba(86, 211, 100, 0.1);
+            color: #40db43;
         }
         .port-offline {
-            background: rgba(248, 81, 73, 0.08);
+            background: rgba(248, 81, 73, 0.1);
             color: #f85149;
         }
         .empty-state {
@@ -310,6 +322,8 @@
                         input.focus(); input.select();
                     });
                 });
+
+                // removed combined hover JS - hover is now handled by CSS per-cell
 
                 document.querySelectorAll('#mappings .port').forEach(el => {
                     el.addEventListener('click', (e) => {
